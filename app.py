@@ -1,49 +1,60 @@
 import streamlit as st
 from PIL import Image
+import gdown
 import os
 import torch
 from torchvision import transforms
 
-# Import your custom models
 from model_resnet50 import ResNet50WithDropout
 from model_efficientnet import EfficientNetV2SWithDropout
 from ultralytics import YOLO
 
-# Class names (ensure same order as used during training)
+# Class labels
 class_names = ['high', 'low', 'md', 'medium', 'zero']
 
-# Preprocessing for torchvision models
+# Preprocessing
 transform = transforms.Compose([
     transforms.Resize((224, 224)),
     transforms.ToTensor(),
     transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 ])
 
+# Helper to download if not present
+def download_if_needed(file_id, output):
+    if not os.path.exists(output):
+        gdown.download(f"https://drive.google.com/uc?id={file_id}", output, quiet=False)
+
 @st.cache_resource
 def load_models():
     models = {}
 
-    # Load YOLOv8
+    # YOLOv8 (Already local)
     try:
         models['YOLOv8'] = YOLO("cassava_ppd_yolov8.pt")
     except Exception as e:
         st.warning(f"YOLOv8 load failed: {e}")
 
-    # Load ResNet50
+    # ResNet50
     try:
+        resnet_path = "resnetfinal_state_dict.pth"
+        download_if_needed("11Kwodly2XNUcOt7HdlBbD77sTsC4_I9o", resnet_path)
+
         resnet_model = ResNet50WithDropout(num_classes=len(class_names))
-        resnet_model.load_state_dict(torch.load("resnetfinal_state_dict.pth", map_location="cpu"))
+        resnet_model.load_state_dict(torch.load(resnet_path, map_location="cpu"))
         resnet_model.eval()
         models['ResNet50'] = resnet_model
     except Exception as e:
         st.warning(f"ResNet50 load failed: {e}")
 
-    # Load EfficientNet
+    # EfficientNet
     try:
-        efficientnet_model = EfficientNetV2SWithDropout(num_classes=len(class_names))
-        efficientnet_model.load_state_dict(torch.load("efficientnet_state_dict.pth", map_location="cpu"))
-        efficientnet_model.eval()
-        models['EfficientNetV2S'] = efficientnet_model
+        eff_path = "efficientnet_state_dict.pth"
+        download_if_needed("1Nhh-9cD7d89aDdbxdaYz_LWSgQQyZGpZ-", eff_path)
+
+        eff_model = EfficientNetV2SWithDropout(num_classes=len(class_names))
+        eff_model.load_state_dict(torch.load(eff_path, map_location="cpu"))
+        eff_model.eval()
+        models['EfficientNetV2S'] = eff_model
     except Exception as e:
         st.warning(f"EfficientNet load failed: {e}")
 
@@ -51,17 +62,17 @@ def load_models():
 
 models = load_models()
 
-# Streamlit UI
+# UI
 st.markdown("<h1 style='color:#198754;'>🧪 PPD Score Prediction from Tuber Images of Cassava</h1>", unsafe_allow_html=True)
 st.subheader("Upload a cassava tuber image and choose a model to predict the PPD score.")
 
 # Model selection
-model_choice = st.selectbox("🔍 Select Model", list(models.keys()))
+model_choice = st.radio("**Select Model**", list(models.keys()), horizontal=True)
 
-# File uploader
+# Upload image
 uploaded_file = st.file_uploader("📤 Choose a cassava tuber image...", type=["jpg", "jpeg", "png"])
 
-# Example images in sidebar
+# Sidebar - Example images
 st.sidebar.markdown("### 📁 Class Examples")
 example_folder = "examples"
 for class_name in class_names:
@@ -89,8 +100,7 @@ if uploaded_file is not None:
             predicted_class = class_names[top1_class_index]
             st.success(f"✅ Predicted Class (YOLOv8): **{predicted_class.upper()}**")
         except Exception as e:
-            st.error(f"❌ Prediction failed: {e}")
-
+            st.error(f"❌ YOLOv8 Prediction failed: {e}")
     else:
         try:
             img_tensor = transform(image).unsqueeze(0)
@@ -99,4 +109,4 @@ if uploaded_file is not None:
                 predicted_class = class_names[output.argmax().item()]
             st.success(f"✅ Predicted Class ({model_choice}): **{predicted_class.upper()}**")
         except Exception as e:
-            st.error(f"❌ Prediction failed: {e}")
+            st.error(f"❌ {model_choice} Prediction failed: {e}")
