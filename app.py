@@ -49,7 +49,7 @@ def load_models():
     # EfficientNet
     try:
         eff_path = "efficientnet_state_dict.pth"
-        download_if_needed("1Nhh-9cD7d89aDdbxdaYz_LWSgQQyZGpZ-", eff_path)
+        download_if_needed("10wlsWr-St47LCUQ7wGqH5BecrGPJHJwL-", eff_path)
 
         eff_model = EfficientNetV2SWithDropout(num_classes=len(class_names))
         eff_model.load_state_dict(torch.load(eff_path, map_location="cpu"))
